@@ -1,0 +1,43 @@
+1 янв 2016 - 1 дек 2025
+
+
+Франция
+Акции
+https://www.investing.com/equities/l.v.m.h.-historical-data
+(LVMH (Louis Vuitton Moët Hennessy) — это ценные бумаги крупнейшего в мире транснационального конгломерата, производящего товары класса люкс (мода, парфюмерия, часы, ювелирные изделия, элитный алкоголь — такие бренды, как Louis Vuitton, Dior, Givenchy, Moët & Chandon, Hennessy))
+
+
+
+data/
+├── prices/
+│   ├── stocks/
+│   │   ├── SBER.csv
+│   │   ├── MC.PA.csv
+│   │   └── 600519.csv
+│   ├── bonds/
+│   │   └── SU26207RMFS9.csv (ещё пока не получилось скачать по месяцам, нужно предусмотреть в коде, чтобы было предупреждение что данных за прошлое нет, или просто нет данных)
+│   ├── gold/
+│   │   └── XAUUSD.csv
+│   ├── futures/
+│   │   └── GC_CONT.csv
+│   └── etf/
+│       └── SPY.csv
+├── assets_catalog.csv
+├── tax_rates.csv
+├── commissions.csv
+├── inflation.csv
+└── deposit_rates.csv
+
+названия файлов и колонки в них (инфляцию заменяла на по месяцам)
+assets_catalog.csv	ticker, name, type, currency, country, description
+prices/<тип>/<ticker>.csv	date, close
+tax_rates.csv	country, year, income_type, rate — оставить годовым
+commissions.csv	country, broker, asset_type, rate_percent, min_fee, min_fee_currency, valid_from, valid_to
+inflation.csv	country, date, rate
+deposit_rates.csv	country, date, rate
+
+
+Запуск: pip install -r requirements.txt, затем из корня проекта uvicorn backend.main:app --reload и открыть http://127.0.0.1:8000. В PyCharm можно создать конфигурацию запуска с модулем uvicorn.
+
+
+Vim    git

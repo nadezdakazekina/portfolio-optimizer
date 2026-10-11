@@ -1,0 +1,1 @@
+# - `def purchasing_power()` — POST `/api/inflation/purchasing-power`

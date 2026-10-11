@@ -1,0 +1,1 @@
+# - `def calc_commission(amount, country)` — комиссия брокера на покупку/продажу

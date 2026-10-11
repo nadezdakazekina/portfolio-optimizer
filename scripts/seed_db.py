@@ -1,0 +1,1 @@
+# — `def seed_assets()`, `def seed_prices()`, `def seed_rates()` — заполнение БД из CSV

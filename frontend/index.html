@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Investment analyzer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
+<style>
+  /* Цвета и общие стили */
+  :root { --bg:#eef1f4; --ink:#14213d; --accent:#0f766e; --warn:#b45309; --card:#fff; }
+  body { margin:0; font-family:system-ui, sans-serif; background:var(--bg); color:var(--ink); }
+  main { max-width:900px; margin:0 auto; padding:16px; }
+  section { background:var(--card); border-radius:8px; padding:16px; margin-bottom:16px; }
+  h1 { margin:8px 0 16px; } h2 { margin-top:0; font-size:1.1rem; }
+  label { display:block; margin:10px 0 4px; }
+  input[type=number], input[type=search] { width:100%; padding:8px; box-sizing:border-box; }
+  button { background:var(--accent); color:#fff; border:0; padding:10px 18px; border-radius:6px; font-size:1rem; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; } .row button.alt { background:#64748b; }
+  .metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+  .metrics div { background:var(--bg); padding:10px; border-radius:6px; } .metrics b { display:block; font-size:1.2rem; }
+  #riskNote { font-weight:600; } #warnings { color:var(--warn); }
+  .tab { display:none; } .tab.active { display:block; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Investment analyzer</h1>
+  <!-- Вкладки: пока работает только «Куда инвестировать» -->
+  <div class="row" style="margin-bottom:16px">
+    <button onclick="switchTab('invest')">Куда инвестировать</button>
+    <button class="alt" onclick="switchTab('portfolio')">Мой портфель</button>
+  </div>
+
+  <div id="invest" class="tab active">
+    <section>
+      <h2>Параметры</h2>
+      <label>Капитал, EUR</label><input id="capital" type="number" value="10000" min="1">
+      <label>Горизонт, лет</label><input id="horizon" type="number" value="1" min="1" max="5">
+      <label>Риск: <span id="riskVal">50</span>% <span id="riskNote"></span></label>
+      <input id="risk" type="range" min="0" max="100" value="50" style="width:100%">
+      <label>Безрисковая ставка, % годовых</label><input id="rf" type="number" value="3" step="0.1">
+    </section>
+    <section>
+      <h2>Активы</h2>
+      <input id="search" type="search" placeholder="Поиск по названию или тикеру">
+      <div id="assetList"></div>
+      <!-- TODO: кнопка «+Добавить» (свой актив) -->
+    </section>
+    <button onclick="calculate()">Пересчитать</button>
+
+    <section id="result" style="display:none;margin-top:16px">
+      <p id="warnings"></p>
+      <div class="metrics" id="metrics"></div>
+      <div id="donut"></div>
+      <div id="frontier"></div>
+    </section>
+  </div>
+
+  <div id="portfolio" class="tab"><section>Вкладка «Мой портфель» — в разработке.</section></div>
+</main>
+
+<script>
+  // Переключение вкладок
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.id === name));
+  }
+
+  // Предупреждение при высоком риске
+  const risk = document.getElementById('risk');
+  risk.oninput = () => {
+    document.getElementById('riskVal').textContent = risk.value;
+    document.getElementById('riskNote').textContent =
+      risk.value > 70 ? '⚠ Высокий риск: возможна как большая прибыль, так и крупные потери' : '';
+  };
+
+  // Список активов с поиском
+  let assets = [];
+  async function loadAssets() {
+    assets = await (await fetch('/api/assets')).json();
+    renderAssets();
+  }
+  function renderAssets() {
+    const q = document.getElementById('search').value.toLowerCase();
+    const box = document.getElementById('assetList');
+    const checked = new Set([...box.querySelectorAll('input:checked')].map(i => i.value));
+    box.innerHTML = assets
+      .filter(a => (a.name + a.ticker).toLowerCase().includes(q) || checked.has(a.ticker))
+      .map(a => `<label><input type="checkbox" value="${a.ticker}" ${checked.has(a.ticker) ? 'checked' : ''}>
+                 ${a.name} (${a.ticker}, ${a.type})</label>`).join('');
+  }
+  document.getElementById('search').oninput = renderAssets;
+
+  // Расчёт
+  const pct = x => (x * 100).toFixed(1) + '%';
+  async function calculate() {
+    const tickers = [...document.querySelectorAll('#assetList input:checked')].map(i => i.value);
+    const resp = await fetch('/api/invest/optimize', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        capital: +capital.value, horizon_years: +horizon.value,
+        risk_level: +risk.value, tickers, risk_free: +rf.value / 100
+      })
+    });
+    const data = await resp.json();
+    document.getElementById('result').style.display = 'block';
+    if (!resp.ok) {
+      const d = data.detail || {};
+      warnings.textContent = (d.msg || 'Ошибка') + ' ' + (d.warnings || []).join('; ');
+      return;
+    }
+    warnings.textContent = data.warnings.join('; ');
+    const m = data.metrics;
+    metrics.innerHTML = [
+      ['Ожидаемая доходность', pct(m.expected_return)], ['Волатильность', pct(m.volatility)],
+      ['Коэффициент Шарпа', m.sharpe.toFixed(2)], ['Макс. просадка', pct(m.max_drawdown)],
+      ['Период восстановления', m.recovery_months === null ? 'не восстановился' : m.recovery_months + ' мес.'],
+      ['Ожидаемая стоимость', m.expected_value.toFixed(0) + ' EUR']
+    ].map(([k, v]) => `<div>${k}<b>${v}</b></div>`).join('');
+
+    Plotly.newPlot('donut', [{type: 'pie', hole: 0.5,
+      labels: data.allocation.map(a => a.ticker), values: data.allocation.map(a => a.weight)}],
+      {title: 'Состав портфеля'});
+    Plotly.newPlot('frontier', [
+      {x: data.frontier.map(p => p.vol), y: data.frontier.map(p => p.ret), mode: 'lines+markers', name: 'Эффективная граница'},
+      {x: [data.max_sharpe.vol], y: [data.max_sharpe.ret], mode: 'markers', name: 'Max Sharpe', marker: {size: 12}},
+      {x: [data.chosen.vol], y: [data.chosen.ret], mode: 'markers', name: 'Выбранный', marker: {size: 12}}
+    ], {title: 'Эффективная граница', xaxis: {title: 'Риск (волатильность)'}, yaxis: {title: 'Доходность'}});
+  }
+  loadAssets();
+</script>
+</body>
+</html>

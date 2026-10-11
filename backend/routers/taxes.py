@@ -1,0 +1,1 @@
+# - `def get_tax_table(country, year)` — отдаёт таблицу ставок по годам/странам

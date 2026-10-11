@@ -1,0 +1,1 @@
+# — `def download_ticker(ticker, source)` — выгрузка цен в CSV

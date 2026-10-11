@@ -1,0 +1,1 @@
+# `def parse_user_csv(file)`, `def validate_columns(df)` (ожидаемые колонки: ticker, date, quantity, price)
